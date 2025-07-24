@@ -23,6 +23,7 @@ class EvalResults:
     timestamp: datetime = field(default_factory=datetime.now)
     config: Optional[EvalConfig] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+    per_item_scores: Dict[str, List[Any]] = field(default_factory=dict)  # New field for per-item scores
     
     def __post_init__(self):
         """Post-initialization processing."""
@@ -37,16 +38,36 @@ class EvalResults:
             "num_samples": self.num_samples,
             "num_metrics": len(self.scores),
             "metrics": list(self.scores.keys()),
-            "timestamp": self.timestamp.isoformat()
+            "timestamp": self.timestamp.isoformat(),
+            "has_per_item_scores": len(self.per_item_scores) > 0
         }
     
     def get_score(self, metric: str) -> Any:
         """Get score for a specific metric."""
         return self.scores.get(metric)
     
+    def get_per_item_scores(self, metric: str) -> Optional[List[Any]]:
+        """Get per-item scores for a specific metric."""
+        return self.per_item_scores.get(metric)
+    
     def get_all_scores(self) -> Dict[str, Any]:
         """Get all computed scores."""
         return self.scores.copy()
+    
+    def get_all_per_item_scores(self) -> Dict[str, List[Any]]:
+        """Get all per-item scores."""
+        return self.per_item_scores.copy()
+    
+    def get_item_score(self, metric: str, item_index: int) -> Any:
+        """Get score for a specific metric and item index."""
+        per_item = self.per_item_scores.get(metric)
+        if per_item and 0 <= item_index < len(per_item):
+            return per_item[item_index]
+        return None
+    
+    def add_per_item_scores(self, metric: str, scores: List[Any]):
+        """Add per-item scores for a metric."""
+        self.per_item_scores[metric] = scores
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert results to dictionary."""
@@ -56,6 +77,7 @@ class EvalResults:
             "num_samples": self.num_samples,
             "timestamp": self.timestamp.isoformat(),
             "metadata": self.metadata,
+            "per_item_scores": self.per_item_scores,
             "summary": self.summary
         }
     
@@ -96,12 +118,24 @@ class EvalResults:
         lines.append(f"  Samples: {self.num_samples}")
         lines.append(f"  Metrics: {len(self.scores)}")
         
+        if self.per_item_scores:
+            lines.append(f"  Per-item scores available: {list(self.per_item_scores.keys())}")
+        
         for metric, score in self.scores.items():
             if score is not None:
                 if isinstance(score, float):
                     lines.append(f"    {metric}: {score:.4f}")
                 else:
                     lines.append(f"    {metric}: {score}")
+                    
+                # Show per-item score statistics if available
+                per_item = self.per_item_scores.get(metric)
+                if per_item:
+                    numeric_scores = [s for s in per_item if isinstance(s, (int, float))]
+                    if numeric_scores:
+                        min_score = min(numeric_scores)
+                        max_score = max(numeric_scores)
+                        lines.append(f"      Per-item range: {min_score:.4f} - {max_score:.4f}")
             else:
                 lines.append(f"    {metric}: ERROR")
         

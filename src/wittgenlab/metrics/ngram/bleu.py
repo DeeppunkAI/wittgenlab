@@ -133,6 +133,56 @@ class BLEUMetric(ReferenceBasedMetric):
             'brevity_penalty': bp,
         }
     
+    def _compute_per_item_scores(self, predictions: List[str], references: List[str]) -> List[Any]:
+        """
+        Compute per-item BLEU scores efficiently.
+        
+        Args:
+            predictions: List of predicted texts
+            references: List of reference texts
+            
+        Returns:
+            List of per-item BLEU scores
+        """
+        try:
+            # Try to use sacrebleu if available for per-item computation
+            import sacrebleu
+            
+            per_item_scores = []
+            for pred, ref in zip(predictions, references):
+                bleu = sacrebleu.sentence_bleu(pred, [ref])
+                per_item_score = {
+                    'bleu': bleu.score / 100.0,  # Convert to 0-1 scale
+                    'bleu_1': bleu.precisions[0] / 100.0 if len(bleu.precisions) > 0 else 0.0,
+                    'bleu_2': bleu.precisions[1] / 100.0 if len(bleu.precisions) > 1 else 0.0,
+                    'bleu_3': bleu.precisions[2] / 100.0 if len(bleu.precisions) > 2 else 0.0,
+                    'bleu_4': bleu.precisions[3] / 100.0 if len(bleu.precisions) > 3 else 0.0,
+                    'brevity_penalty': bleu.bp,
+                }
+                per_item_scores.append(per_item_score)
+            
+        except ImportError:
+            logger.warning("sacrebleu not available, using simplified BLEU implementation for per-item scores")
+            per_item_scores = []
+            for pred, ref in zip(predictions, references):
+                score = self._simple_bleu([pred], [ref])
+                per_item_scores.append(score)
+        
+        return per_item_scores
+    
+    def postprocess_item(self, score: Dict[str, float]) -> float:
+        """
+        Postprocess individual BLEU score.
+        
+        Args:
+            score: Raw BLEU score dictionary for a single item
+            
+        Returns:
+            Main BLEU score (float) for the item
+        """
+        # Return main BLEU score for individual items
+        return score.get('bleu', 0.0)
+
     def postprocess(self, score: Dict[str, float]) -> float:
         """
         Postprocess BLEU score.

@@ -143,6 +143,75 @@ class ReferenceBasedMetric(BaseMetric):
         # Postprocess score
         return self.postprocess(score)
     
+    def compute_with_per_item(self, predictions: List[str], references: List[str]) -> tuple:
+        """
+        Compute reference-based metric with per-item scores.
+        
+        Args:
+            predictions: List of predicted outputs
+            references: List of reference outputs
+            
+        Returns:
+            Tuple of (overall_score, per_item_scores)
+        """
+        self.validate_inputs(predictions, references)
+        
+        # Preprocess inputs
+        predictions = [self.preprocess(pred) for pred in predictions]
+        references = [self.preprocess(ref) for ref in references]
+        
+        # Compute overall score
+        overall_score = self._compute_score(predictions, references)
+        
+        # Compute per-item scores
+        per_item_scores = self._compute_per_item_scores(predictions, references)
+        
+        # Postprocess scores
+        overall_score = self.postprocess(overall_score)
+        per_item_scores = [self.postprocess_item(score) for score in per_item_scores]
+        
+        return overall_score, per_item_scores
+    
+    def _compute_per_item_scores(self, predictions: List[str], references: List[str]) -> List[Any]:
+        """
+        Compute per-item scores.
+        
+        Default implementation computes score for each prediction-reference pair individually.
+        Subclasses can override this for more efficient computation.
+        
+        Args:
+            predictions: List of predicted outputs
+            references: List of reference outputs
+            
+        Returns:
+            List of per-item scores
+        """
+        per_item_scores = []
+        for pred, ref in zip(predictions, references):
+            try:
+                score = self._compute_score([pred], [ref])
+                per_item_scores.append(score)
+            except Exception as e:
+                logger.warning(f"Error computing per-item score: {e}")
+                per_item_scores.append(None)
+        
+        return per_item_scores
+    
+    def postprocess_item(self, score: Any) -> Any:
+        """
+        Postprocess individual item score.
+        
+        Default implementation uses the same postprocessing as overall score.
+        Subclasses can override for item-specific postprocessing.
+        
+        Args:
+            score: Raw computed score for a single item
+            
+        Returns:
+            Processed score for the item
+        """
+        return self.postprocess(score)
+    
     @abstractmethod
     def _compute_score(self, predictions: List[str], references: List[str]) -> Any:
         """

@@ -54,6 +54,7 @@ class EvalHub:
         references: List[str],
         metrics: List[str],
         task: str = "general",
+        include_per_item: bool = False,
         **kwargs
     ) -> EvalResults:
         """
@@ -64,6 +65,7 @@ class EvalHub:
             references: List of ground truth references
             metrics: List of metric names to compute
             task: Task type (e.g., 'summarization', 'translation', 'generation')
+            include_per_item: Whether to include per-item scores for each prediction-reference pair
             **kwargs: Additional parameters for specific metrics
             
         Returns:
@@ -76,6 +78,7 @@ class EvalHub:
             raise ValueError("Predictions and references must have the same length")
         
         results = {}
+        per_item_results = {}
         
         for metric_name in metrics:
             try:
@@ -83,21 +86,39 @@ class EvalHub:
                 metric_class = self.metrics_registry.get_metric(metric_name)
                 metric = metric_class(**kwargs)
                 
-                score = metric.compute(predictions, references)
-                results[metric_name] = score
-                
-                logger.info(f"{metric_name}: {score}")
+                if include_per_item and hasattr(metric, 'compute_with_per_item'):
+                    # Compute both overall and per-item scores
+                    overall_score, per_item_scores = metric.compute_with_per_item(predictions, references)
+                    results[metric_name] = overall_score
+                    per_item_results[metric_name] = per_item_scores
+                    
+                    logger.info(f"{metric_name}: {overall_score} (per-item: {len(per_item_scores)} scores)")
+                else:
+                    # Compute only overall score
+                    score = metric.compute(predictions, references)
+                    results[metric_name] = score
+                    
+                    logger.info(f"{metric_name}: {score}")
                 
             except Exception as e:
                 logger.error(f"Error computing {metric_name}: {str(e)}")
                 results[metric_name] = None
+                if include_per_item:
+                    per_item_results[metric_name] = [None] * len(predictions)
         
-        return EvalResults(
+        eval_results = EvalResults(
             scores=results,
             task=task,
             num_samples=len(predictions),
             config=self.config
         )
+        
+        # Add per-item scores if computed
+        if per_item_results:
+            for metric_name, per_item_scores in per_item_results.items():
+                eval_results.add_per_item_scores(metric_name, per_item_scores)
+        
+        return eval_results
     
     def benchmark(
         self,

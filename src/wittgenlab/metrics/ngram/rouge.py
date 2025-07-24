@@ -78,6 +78,48 @@ class ROUGEMetric(ReferenceBasedMetric):
         
         return result
     
+    def _compute_per_item_scores(self, predictions: List[str], references: List[str]) -> List[Any]:
+        """
+        Compute per-item ROUGE scores efficiently.
+        
+        Args:
+            predictions: List of predicted texts
+            references: List of reference texts
+            
+        Returns:
+            List of per-item ROUGE scores
+        """
+        try:
+            # Try to use rouge-score package if available
+            from rouge_score import rouge_scorer
+            
+            scorer = rouge_scorer.RougeScorer(self.rouge_types, use_stemmer=True)
+            
+            per_item_scores = []
+            for pred, ref in zip(predictions, references):
+                scores = scorer.score(ref, pred)
+                
+                item_result = {}
+                for rouge_type in self.rouge_types:
+                    if rouge_type in scores:
+                        item_result[f'{rouge_type}_precision'] = scores[rouge_type].precision
+                        item_result[f'{rouge_type}_recall'] = scores[rouge_type].recall
+                        item_result[f'{rouge_type}_f1'] = scores[rouge_type].fmeasure
+                        
+                        # Main score is F1
+                        item_result[rouge_type] = scores[rouge_type].fmeasure
+                
+                per_item_scores.append(item_result)
+            
+        except ImportError:
+            logger.warning("rouge-score package not available, using simplified ROUGE implementation for per-item scores")
+            per_item_scores = []
+            for pred, ref in zip(predictions, references):
+                score = self._simple_rouge([pred], [ref])
+                per_item_scores.append(score)
+        
+        return per_item_scores
+    
     def _simple_rouge(self, predictions: List[str], references: List[str]) -> Dict[str, float]:
         """
         Simplified ROUGE implementation without external dependencies.
@@ -191,6 +233,19 @@ class ROUGEMetric(ReferenceBasedMetric):
         
         return result
     
+    def postprocess_item(self, score: Dict[str, float]) -> float:
+        """
+        Postprocess individual ROUGE score.
+        
+        Args:
+            score: Raw ROUGE score dictionary for a single item
+            
+        Returns:
+            Main ROUGE score (rouge1 F1 by default) for the item
+        """
+        # Return ROUGE-1 F1 as the main score for individual items
+        return score.get('rouge1', score.get('rouge1_f1', 0.0))
+
     def postprocess(self, score: Dict[str, float]) -> float:
         """
         Postprocess ROUGE score.
