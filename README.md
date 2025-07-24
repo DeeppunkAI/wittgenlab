@@ -60,13 +60,51 @@ results = evaluator.evaluate(
     metrics=['bertscore'],
     task='semantic_evaluation',
     return_full_scores=True,  # Obtener precisión, recall, F1
-    model_type="bert-base-multilingual-cased"
+    model_type="bert-base-multilingual-cased",
+    include_per_item=True  # ¡NUEVA FUNCIONALIDAD!
 )
 
 bertscore_result = results.get_score('bertscore')
-print(f"Precisión: {bertscore_result['precision']:.4f}")
-print(f"Recall: {bertscore_result['recall']:.4f}")
-print(f"F1: {bertscore_result['f1']:.4f}")
+print(f"BERTScore F1: {bertscore_result:.4f}")
+
+# Acceder a scores individuales
+bertscore_per_item = results.get_per_item_scores('bertscore')
+for i, score in enumerate(bertscore_per_item):
+    print(f"Elemento {i+1}: BERTScore={score:.4f}")
+```
+
+### Evaluación con Scores por Elemento
+
+```python
+# Evaluación completa con BLEU, ROUGE y BERTScore
+results = evaluator.evaluate(
+    predictions=predictions,
+    references=references,
+    metrics=['bleu', 'rouge', 'bertscore'],
+    task='comprehensive_evaluation',
+    include_per_item=True,  # Activar scores por elemento
+    lang='es'  # Idioma para BERTScore
+)
+
+# Scores generales
+print(f"BLEU: {results.get_score('bleu'):.4f}")
+print(f"ROUGE: {results.get_score('rouge'):.4f}")
+print(f"BERTScore: {results.get_score('bertscore'):.4f}")
+
+# Scores individuales
+for i in range(len(predictions)):
+    bleu_item = results.get_item_score('bleu', i)
+    rouge_item = results.get_item_score('rouge', i)
+    bertscore_item = results.get_item_score('bertscore', i)
+    print(f"Elemento {i+1}: BLEU={bleu_item:.4f}, ROUGE={rouge_item:.4f}, BERTScore={bertscore_item:.4f}")
+
+# Análisis estadístico
+bleu_scores = results.get_per_item_scores('bleu')
+bertscore_scores = results.get_per_item_scores('bertscore')
+
+import numpy as np
+correlation = np.corrcoef(bleu_scores, bertscore_scores)[0, 1]
+print(f"Correlación BLEU-BERTScore: {correlation:.4f}")
 ```
 
 ### LLM-as-a-Judge

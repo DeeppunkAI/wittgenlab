@@ -8,10 +8,13 @@ from pathlib import Path
 
 from .config import EvalConfig
 from .results import EvalResults, BenchmarkResults
+from .security import SecureLogger, sanitize_any
 from ..metrics.registry import MetricsRegistry
 from ..benchmarks.registry import BenchmarksRegistry
 
-logger = logging.getLogger(__name__)
+# Use secure logger that automatically sanitizes sensitive data
+base_logger = logging.getLogger(__name__)
+logger = SecureLogger(base_logger)
 
 
 class EvalHub:

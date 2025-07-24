@@ -36,16 +36,19 @@ class TestPerItemEvaluation:
         results = self.evaluator.evaluate(
             predictions=self.predictions,
             references=self.references,
-            metrics=['bleu', 'rouge'],
+            metrics=['bleu', 'rouge', 'bertscore'],
             task='test',
-            include_per_item=False
+            include_per_item=False,
+            lang='en'  # Specify language for BERTScore
         )
         
         assert isinstance(results, EvalResults)
         assert 'bleu' in results.scores
         assert 'rouge' in results.scores
+        assert 'bertscore' in results.scores
         assert results.get_score('bleu') is not None
         assert results.get_score('rouge') is not None
+        assert results.get_score('bertscore') is not None
         assert len(results.per_item_scores) == 0  # No per-item scores
     
     def test_per_item_evaluation_basic(self):
@@ -53,9 +56,10 @@ class TestPerItemEvaluation:
         results = self.evaluator.evaluate(
             predictions=self.predictions,
             references=self.references,
-            metrics=['bleu', 'rouge'],
+            metrics=['bleu', 'rouge', 'bertscore'],
             task='test',
-            include_per_item=True
+            include_per_item=True,
+            lang='en'  # Specify language for BERTScore
         )
         
         assert isinstance(results, EvalResults)
@@ -63,22 +67,28 @@ class TestPerItemEvaluation:
         # Check overall scores
         assert 'bleu' in results.scores
         assert 'rouge' in results.scores
+        assert 'bertscore' in results.scores
         assert results.get_score('bleu') is not None
         assert results.get_score('rouge') is not None
+        assert results.get_score('bertscore') is not None
         
         # Check per-item scores
         assert len(results.per_item_scores) > 0
         assert 'bleu' in results.per_item_scores
         assert 'rouge' in results.per_item_scores
+        assert 'bertscore' in results.per_item_scores
         
         # Check per-item score structure
         bleu_per_item = results.get_per_item_scores('bleu')
         rouge_per_item = results.get_per_item_scores('rouge')
+        bertscore_per_item = results.get_per_item_scores('bertscore')
         
         assert bleu_per_item is not None
         assert rouge_per_item is not None
+        assert bertscore_per_item is not None
         assert len(bleu_per_item) == len(self.predictions)
         assert len(rouge_per_item) == len(self.predictions)
+        assert len(bertscore_per_item) == len(self.predictions)
         
         # Check that all scores are numeric
         for score in bleu_per_item:
@@ -88,6 +98,10 @@ class TestPerItemEvaluation:
         for score in rouge_per_item:
             assert isinstance(score, (int, float))
             assert 0 <= score <= 1  # ROUGE scores should be between 0 and 1
+        
+        for score in bertscore_per_item:
+            assert isinstance(score, (int, float))
+            assert 0 <= score <= 1  # BERTScore scores should be between 0 and 1
     
     def test_single_metric_per_item(self):
         """Test per-item evaluation with single metrics."""
@@ -103,6 +117,7 @@ class TestPerItemEvaluation:
         assert 'bleu' in bleu_results.scores
         assert 'bleu' in bleu_results.per_item_scores
         assert 'rouge' not in bleu_results.per_item_scores
+        assert 'bertscore' not in bleu_results.per_item_scores
         
         # Test ROUGE only
         rouge_results = self.evaluator.evaluate(
@@ -116,26 +131,46 @@ class TestPerItemEvaluation:
         assert 'rouge' in rouge_results.scores
         assert 'rouge' in rouge_results.per_item_scores
         assert 'bleu' not in rouge_results.per_item_scores
+        assert 'bertscore' not in rouge_results.per_item_scores
+        
+        # Test BERTScore only
+        bertscore_results = self.evaluator.evaluate(
+            predictions=self.predictions,
+            references=self.references,
+            metrics=['bertscore'],
+            task='test_bertscore',
+            include_per_item=True,
+            lang='en'
+        )
+        
+        assert 'bertscore' in bertscore_results.scores
+        assert 'bertscore' in bertscore_results.per_item_scores
+        assert 'bleu' not in bertscore_results.per_item_scores
+        assert 'rouge' not in bertscore_results.per_item_scores
     
     def test_get_item_score_method(self):
         """Test the get_item_score method."""
         results = self.evaluator.evaluate(
             predictions=self.predictions,
             references=self.references,
-            metrics=['bleu', 'rouge'],
+            metrics=['bleu', 'rouge', 'bertscore'],
             task='test',
-            include_per_item=True
+            include_per_item=True,
+            lang='en'
         )
         
         # Test valid indices
         for i in range(len(self.predictions)):
             bleu_score = results.get_item_score('bleu', i)
             rouge_score = results.get_item_score('rouge', i)
+            bertscore_score = results.get_item_score('bertscore', i)
             
             assert bleu_score is not None
             assert rouge_score is not None
+            assert bertscore_score is not None
             assert isinstance(bleu_score, (int, float))
             assert isinstance(rouge_score, (int, float))
+            assert isinstance(bertscore_score, (int, float))
         
         # Test invalid indices
         assert results.get_item_score('bleu', -1) is None
@@ -294,25 +329,30 @@ def test_integration_example():
     results = evaluator.evaluate(
         predictions=predictions,
         references=references,
-        metrics=['bleu', 'rouge'],
+        metrics=['bleu', 'rouge', 'bertscore'],
         task='integration_test',
-        include_per_item=True
+        include_per_item=True,
+        lang='es'  # Spanish language for BERTScore
     )
     
     # Verify we can access all functionality
     assert results.get_score('bleu') is not None
     assert results.get_score('rouge') is not None
+    assert results.get_score('bertscore') is not None
     
     bleu_per_item = results.get_per_item_scores('bleu')
     rouge_per_item = results.get_per_item_scores('rouge')
+    bertscore_per_item = results.get_per_item_scores('bertscore')
     
     assert len(bleu_per_item) == 2
     assert len(rouge_per_item) == 2
+    assert len(bertscore_per_item) == 2
     
     # Test individual access
     for i in range(2):
         assert results.get_item_score('bleu', i) is not None
         assert results.get_item_score('rouge', i) is not None
+        assert results.get_item_score('bertscore', i) is not None
     
     print("Integration test passed successfully!")
 

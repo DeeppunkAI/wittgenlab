@@ -174,6 +174,108 @@ class BERTScoreMetric(ReferenceBasedMetric):
                 "error": error_msg
             }
     
+    def _compute_per_item_scores(self, predictions: List[str], references: List[str]) -> List[Any]:
+        """
+        Compute per-item BERTScore scores efficiently.
+        
+        Args:
+            predictions: List of predicted texts
+            references: List of reference texts
+            
+        Returns:
+            List of per-item BERTScore scores (each containing precision, recall, f1)
+        """
+        try:
+            # Import bert_score
+            from bert_score import score
+            
+            # Prepare arguments for bert_score.score
+            score_args = {
+                'lang': self.lang,
+                'verbose': False,  # Disable verbose for per-item computation
+                'idf': self.idf,
+                'batch_size': self.batch_size,
+                'nthreads': self.nthreads,
+                'all_layers': self.all_layers,
+                'rescale_with_baseline': self.rescale_with_baseline
+            }
+            
+            # Add optional arguments if they are not None
+            if self.model_type is not None:
+                score_args['model_type'] = self.model_type
+            
+            if self.num_layers is not None:
+                score_args['num_layers'] = self.num_layers
+                
+            if self.device is not None:
+                score_args['device'] = self.device
+            
+            # Compute BERTScore for all pairs
+            logger.info(f"Computing per-item BERTScore for {len(predictions)} samples")
+            
+            P, R, F1 = score(
+                cands=predictions,
+                refs=references,
+                **score_args
+            )
+            
+            # Convert to individual score dictionaries
+            per_item_scores = []
+            for i, (p, r, f1) in enumerate(zip(P, R, F1)):
+                item_score = {
+                    "precision": float(p.item()) if hasattr(p, 'item') else float(p),
+                    "recall": float(r.item()) if hasattr(r, 'item') else float(r),
+                    "f1": float(f1.item()) if hasattr(f1, 'item') else float(f1)
+                }
+                per_item_scores.append(item_score)
+            
+            logger.info(f"Per-item BERTScore computed successfully for {len(per_item_scores)} samples")
+            return per_item_scores
+            
+        except ImportError as e:
+            logger.error("bert-score library not found for per-item computation")
+            # Return error scores for each item
+            error_scores = []
+            for _ in range(len(predictions)):
+                error_scores.append({
+                    "precision": 0.0,
+                    "recall": 0.0,
+                    "f1": 0.0,
+                    "error": "bert-score library not available"
+                })
+            return error_scores
+            
+        except Exception as e:
+            logger.error(f"Error computing per-item BERTScore: {str(e)}")
+            # Return error scores for each item
+            error_scores = []
+            for _ in range(len(predictions)):
+                error_scores.append({
+                    "precision": 0.0,
+                    "recall": 0.0,
+                    "f1": 0.0,
+                    "error": str(e)
+                })
+            return error_scores
+    
+    def postprocess_item(self, score: Dict[str, Any]) -> float:
+        """
+        Postprocess individual BERTScore.
+        
+        Args:
+            score: Raw BERTScore dictionary for a single item
+            
+        Returns:
+            Main BERTScore (F1 score by default) for the item
+        """
+        # Check for errors in individual score computation
+        if "error" in score:
+            logger.warning(f"BERTScore per-item computation had errors: {score['error']}")
+            return 0.0
+        
+        # Return F1 score as the main score for individual items
+        return score.get("f1", 0.0)
+
     def postprocess(self, score: Dict[str, Any]) -> Union[float, Dict[str, Any]]:
         """
         Postprocess the computed scores.

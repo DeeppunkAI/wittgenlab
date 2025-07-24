@@ -71,6 +71,9 @@ class EvalResults:
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert results to dictionary."""
+        # Use safe config that masks sensitive data
+        safe_config = self.config.to_safe_dict() if self.config else None
+        
         return {
             "scores": self.scores,
             "task": self.task,
@@ -78,6 +81,7 @@ class EvalResults:
             "timestamp": self.timestamp.isoformat(),
             "metadata": self.metadata,
             "per_item_scores": self.per_item_scores,
+            "config": safe_config,
             "summary": self.summary
         }
     
@@ -139,6 +143,10 @@ class EvalResults:
             else:
                 lines.append(f"    {metric}: ERROR")
         
+        # Add config info (without sensitive data)
+        if self.config:
+            lines.append(f"  Config: {len(str(self.config))} chars (sensitive data masked)")
+        
         return "\n".join(lines)
 
 
@@ -190,12 +198,16 @@ class BenchmarkResults:
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert results to dictionary."""
+        # Use safe config that masks sensitive data
+        safe_config = self.config.to_safe_dict() if self.config else None
+        
         return {
             "scores": self.scores,
             "model_name": self.model_name,
             "few_shot": self.few_shot,
             "timestamp": self.timestamp.isoformat(),
             "metadata": self.metadata,
+            "config": safe_config,
             "summary": self.summary,
             "average_score": self.get_average_score()
         }
@@ -253,6 +265,10 @@ class BenchmarkResults:
                     lines.append(f"    {benchmark}: {score}")
             else:
                 lines.append(f"    {benchmark}: ERROR")
+        
+        # Add config info (without sensitive data)
+        if self.config:
+            lines.append(f"  Config: {len(str(self.config))} chars (sensitive data masked)")
         
         return "\n".join(lines)
 

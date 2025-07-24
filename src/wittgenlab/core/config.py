@@ -5,8 +5,9 @@ Configuration management for the WittgenLab evaluation framework.
 import os
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Set
 from pathlib import Path
+import re
 
 
 @dataclass
@@ -15,7 +16,7 @@ class EvalConfig:
     Configuration class for the evaluation framework.
     
     This class manages all configuration options for metrics, benchmarks,
-    and evaluation settings.
+    and evaluation settings with built-in security for sensitive data.
     """
     
     # Logging configuration
@@ -49,11 +50,20 @@ class EvalConfig:
     openai_api_key: Optional[str] = field(default_factory=lambda: os.getenv("OPENAI_API_KEY"))
     huggingface_token: Optional[str] = field(default_factory=lambda: os.getenv("HF_TOKEN"))
     anthropic_api_key: Optional[str] = field(default_factory=lambda: os.getenv("ANTHROPIC_API_KEY"))
+    google_api_key: Optional[str] = field(default_factory=lambda: os.getenv("GOOGLE_API_KEY"))
+    azure_api_key: Optional[str] = field(default_factory=lambda: os.getenv("AZURE_API_KEY"))
     
     # Output settings
     output_dir: str = field(default_factory=lambda: str(Path.cwd() / "eval_results"))
     save_predictions: bool = True
     save_intermediate: bool = False
+    
+    # Security settings
+    _sensitive_fields: Set[str] = field(default_factory=lambda: {
+        'openai_api_key', 'huggingface_token', 'anthropic_api_key', 
+        'google_api_key', 'azure_api_key', 'api_key', 'token', 
+        'password', 'secret', 'auth_token', 'access_token'
+    }, init=False, repr=False)
     
     def __post_init__(self):
         """Post-initialization setup."""
@@ -66,6 +76,52 @@ class EvalConfig:
         # Setup logging level
         if isinstance(self.log_level, str):
             self.log_level = getattr(logging, self.log_level.upper())
+    
+    def _is_sensitive_field(self, field_name: str) -> bool:
+        """Check if a field contains sensitive information."""
+        field_lower = field_name.lower()
+        return any(sensitive in field_lower for sensitive in self._sensitive_fields)
+    
+    def _mask_sensitive_value(self, value: Any) -> str:
+        """Mask sensitive values for display."""
+        if value is None:
+            return None
+        
+        str_value = str(value)
+        if len(str_value) <= 8:
+            return "***"
+        else:
+            # Show first 3 and last 3 characters
+            return f"{str_value[:3]}...{str_value[-3:]}"
+    
+    def _filter_sensitive_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Recursively filter sensitive data from a dictionary."""
+        filtered = {}
+        
+        for key, value in data.items():
+            if self._is_sensitive_field(key):
+                filtered[key] = self._mask_sensitive_value(value)
+            elif isinstance(value, dict):
+                filtered[key] = self._filter_sensitive_data(value)
+            elif isinstance(value, list):
+                filtered[key] = [
+                    self._filter_sensitive_data(item) if isinstance(item, dict) else item
+                    for item in value
+                ]
+            else:
+                filtered[key] = value
+        
+        return filtered
+    
+    def to_safe_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary with sensitive information masked."""
+        from dataclasses import asdict
+        
+        data = asdict(self)
+        # Remove internal fields
+        data.pop('_sensitive_fields', None)
+        
+        return self._filter_sensitive_data(data)
     
     def get_metric_config(self, metric_name: str) -> Dict[str, Any]:
         """Get configuration for a specific metric."""
@@ -102,14 +158,25 @@ class EvalConfig:
         
         return cls(**data)
     
-    def to_file(self, config_path: str):
-        """Save configuration to a file."""
+    def to_file(self, config_path: str, include_sensitive: bool = False):
+        """
+        Save configuration to a file.
+        
+        Args:
+            config_path: Path to save the configuration
+            include_sensitive: Whether to include sensitive data (default: False for security)
+        """
         import json
         import yaml
         from dataclasses import asdict
         
         path = Path(config_path)
-        data = asdict(self)
+        
+        if include_sensitive:
+            data = asdict(self)
+            data.pop('_sensitive_fields', None)
+        else:
+            data = self.to_safe_dict()
         
         if path.suffix == ".json":
             with open(path, "w") as f:
@@ -118,4 +185,18 @@ class EvalConfig:
             with open(path, "w") as f:
                 yaml.dump(data, f, default_flow_style=False)
         else:
-            raise ValueError(f"Unsupported config file format: {path.suffix}") 
+            raise ValueError(f"Unsupported config file format: {path.suffix}")
+    
+    def __repr__(self) -> str:
+        """Safe string representation that masks sensitive data."""
+        safe_dict = self.to_safe_dict()
+        return f"EvalConfig({safe_dict})"
+    
+    def __str__(self) -> str:
+        """Safe string representation for display."""
+        safe_dict = self.to_safe_dict()
+        lines = ["EvalConfig:"]
+        for key, value in safe_dict.items():
+            if key not in ['metric_configs', 'benchmark_configs']:  # Skip large nested configs
+                lines.append(f"  {key}: {value}")
+        return "\n".join(lines) 
