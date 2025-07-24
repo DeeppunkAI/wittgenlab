@@ -136,7 +136,7 @@ benchmark_results = evaluator.benchmark(
 print(f"MMLU Score: {benchmark_results.get_score('mmlu'):.4f}")
 ```
 
-### Comparación de Modelos
+### Comparación de Modelos (en desarrollo)
 
 ```python
 # Comparar múltiples modelos
@@ -191,38 +191,38 @@ wittgenlab/
 ### Métricas N-gram
 - **BLEU**: Bilingual Evaluation Understudy
 - **ROUGE**: Recall-Oriented Understudy for Gisting Evaluation
-- **METEOR**: Metric for Evaluation of Translation with Explicit ORdering
-- **CIDEr**: Consensus-based Image Description Evaluation
+- **METEOR**: Metric for Evaluation of Translation with Explicit ORdering (en desarrollo)
+- **CIDEr**: Consensus-based Image Description Evaluation  (en desarrollo)
 
 ### Métricas Semánticas
 - **BERTScore**: Similitud semántica consciente del contexto
-- **MoverScore**: Earth Mover's Distance para evaluación
-- **BLEURT**: Métrica de evaluación aprendida
+- **MoverScore**: Earth Mover's Distance para evaluación (en desarrollo)
+- **BLEURT**: Métrica de evaluación aprendida (en desarrollo)
 
 ### LLM-as-a-Judge
 - **Criterios Múltiples**: accuracy, helpfulness, safety, quality, relevance, fluency
-- **Modelos Múltiples**: GPT-4, Claude-3, Gemini-Pro, y más
-- **Métodos de Consenso**: majority_vote, average, weighted_average
-- **Criterios Personalizados**: Define tus propios criterios de evaluación
+- **Modelos Múltiples**: GPT-4, Claude-3, Gemini-Pro, y más (en desarrollo)
+- **Métodos de Consenso**: majority_vote, average, weighted_average (en desarrollo)
+- **Criterios Personalizados**: Define tus propios criterios de evaluación (en desarrollo)
 
 ### Métricas Personalizadas
-- **Diversidad**: Diversidad léxica y semántica
-- **Coherencia**: Evaluación de coherencia textual
+- **Diversidad**: Diversidad léxica y semántica (en desarrollo)
+- **Coherencia**: Evaluación de coherencia textual 
 - **Fluidez**: Evaluación de fluidez del lenguaje
 
 ## 🏆 Benchmarks Soportados
 
-### Conocimiento y Razonamiento
+### Conocimiento y Razonamiento (en desarrollo)
 - **MMLU**: Massive Multitask Language Understanding
 - **ARC**: AI2 Reasoning Challenge
 - **HellaSwag**: Razonamiento de sentido común
 - **WinoGrande**: Winograd Schema Challenge
 
-### Generación de Código
+### Generación de Código (en desarrollo)
 - **HumanEval**: Generación de código Python
 - **MBPP**: Mostly Basic Python Problems
 
-### Seguridad y Alineación
+### Seguridad y Alineación (en desarrollo)
 - **ToxiGen**: Detección de toxicidad
 - **TruthfulQA**: Evaluación de veracidad
 - **Detección de Sesgos**: Varias suites de evaluación de sesgos
@@ -436,12 +436,9 @@ for bot_name, responses in chatbot_responses.items():
         print(f"  {criterion}: {stats['mean_score']:.2f}/5")
 ```
 
-## 📚 Documentación
 
-Para documentación detallada, ejemplos y referencia de API, visita:
-- [Documentación Completa](https://wittgenlab.readthedocs.io)
-- [Referencia de API](https://wittgenlab.readthedocs.io/api)
-- [Ejemplos](https://github.com/yourusername/wittgenlab/tree/main/examples)
+
+
 
 ## 🎮 Ejecutar la Demostración
 
